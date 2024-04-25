@@ -33,18 +33,26 @@ app.get('/connect_youtube', (req, res) => {
         access_type: 'offline', // 'offline' access type is used to obtain a refresh token
         scope: SCOPES, // Scopes define the level of access you need: in this case, to upload videos to YouTube
     });
+    console.log('authurl', authUrl)
     res.redirect(authUrl); // Redirect the user to the authentication URL
 });
 
 // OAuth2 callback route
 app.get('/oauth2callback', async (req, res) => {
-    const { code } = req.query;
-    console.log('code', code)
-    console.log('query', req.query)
-    const { tokens } = await oAuth2Client.getToken(code);
-    console.log('tokens', tokens)
-    oAuth2Client.setCredentials(tokens);
-    res.redirect('/upload_video'); 
+  const { code } = req.query;
+  try {
+      const { tokens } = await oAuth2Client.getToken(code);
+      console.log('tokens', tokens);
+      
+      // Set the obtained tokens as credentials
+      oAuth2Client.setCredentials(tokens);
+      
+      // Redirect to the route where you want to proceed after authentication
+      res.redirect('/upload_video'); 
+  } catch (error) {
+      console.error('Error retrieving tokens:', error);
+      res.status(500).send('Error retrieving tokens');
+  }
 });
 
 app.post('/upload_video', upload.single('video'), async (req, res) => {
