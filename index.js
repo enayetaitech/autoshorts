@@ -26,7 +26,7 @@ app.post('/upload_video', upload.single('video'), async (req, res) => {
     console.log('video', video)
     // Authenticate user and obtain credentials
     const auth = await authenticate({
-      keyfilePath: path.join(__dirname, '../oauth2.keys.json'),
+      keyfilePath: path.join(__dirname, 'oauth2.keys.json'),
       scopes: [
         'https://www.googleapis.com/auth/youtube.upload',
         'https://www.googleapis.com/auth/youtube',
