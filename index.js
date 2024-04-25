@@ -14,6 +14,9 @@ const oAuth2Client = new google.auth.OAuth2(CLIENT_ID, CLIENT_SECRET, REDIRECT_U
 // Define the scope for YouTube video uploads
 const SCOPES = ['https://www.googleapis.com/auth/youtube.upload'];
 
+app.get('/', (req, res) => {
+  res.send('This is autoshorts')
+})
 // Route to start the OAuth flow
 app.get('/connect_youtube', (req, res) => {
     const authUrl = oAuth2Client.generateAuthUrl({
