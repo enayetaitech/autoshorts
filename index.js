@@ -30,9 +30,43 @@ app.get('/connect_youtube', (req, res) => {
 app.get('/oauth2callback', async (req, res) => {
     const { code } = req.query;
     const { tokens } = await oAuth2Client.getToken(code);
+    console.log('tokens', tokens)
     oAuth2Client.setCredentials(tokens);
     res.send('YouTube account connected. You can now upload videos.');
 });
+
+app.post('/upload_video', async (req, res) => {
+  const { title, description,  video } = req.body; // assume video is a file buffer or string
+  console.log('title', title)
+  console.log('description', description)
+  console.log('video', video)
+  const youtube = google.youtube('v3');
+
+  try {
+      const uploadResponse = await youtube.videos.insert({
+          part: 'snippet',
+          requestBody: {
+              snippet: {
+                  title,
+                  description,
+              },
+          },
+          media: {
+              body: video,
+          },
+      }, {
+          auth: oAuth2Client,
+      });
+
+      console.log('upload res', uploadResponse)
+      const videoId = uploadResponse.data.id;
+      res.send(`Video uploaded successfully! Video ID: ${videoId}`);
+  } catch (error) {
+      console.error(error);
+      res.status(500).send('Error uploading video');
+  }
+})
+
 
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 
