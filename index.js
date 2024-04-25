@@ -46,7 +46,7 @@ app.get('/oauth2callback', async (req, res) => {
       
       // Set the obtained tokens as credentials
       oAuth2Client.setCredentials(tokens);
-      
+      console.log('checking credential set', oAuth2Client.credentials)
       // Redirect to the route where you want to proceed after authentication
       res.redirect('/upload_video'); 
   } catch (error) {
