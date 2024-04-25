@@ -53,7 +53,7 @@ app.post('/upload_video', upload.single('video'), async (req, res) => {
   console.log('description', description)
   console.log('video', video)
    // Check if user has authenticated with YouTube
-  if (!oAuth2Client.hasCredentials()) {
+  if (!oAuth2Client.credentials) {
     // If not, redirect to /connect_youtube to start OAuth flow
     return res.redirect('/connect_youtube');
   }
