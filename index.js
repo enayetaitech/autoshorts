@@ -1,10 +1,19 @@
 const express = require('express');
 const { google } = require('googleapis');
 require('dotenv').config();
+const multer = require('multer');
+const cors = require('cors');
 
 const app = express();
 app.use(express.json());
 
+app.use(cors({
+  origin: ['http://localhost:5173'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  headers: ['Content-Type', 'Authorization']
+}));
+
+const upload = multer({ dest: './uploads/' });
 const PORT = process.env.PORT || 5000;
 const CLIENT_ID = process.env.CLIENT_ID;
 const CLIENT_SECRET = process.env.CLIENT_SECRET;
@@ -35,8 +44,9 @@ app.get('/oauth2callback', async (req, res) => {
     res.send('YouTube account connected. You can now upload videos.');
 });
 
-app.post('/upload_video', async (req, res) => {
-  const { title, description,  video } = req.body; // assume video is a file buffer or string
+app.post('/upload_video',upload.single('video'), async (req, res) => {
+  const { title, description } = req.body; // assume video is a file buffer or string
+  const video = req.file;
   console.log('title', title)
   console.log('description', description)
   console.log('video', video)
@@ -63,7 +73,7 @@ app.post('/upload_video', async (req, res) => {
       res.send(`Video uploaded successfully! Video ID: ${videoId}`);
   } catch (error) {
       console.error(error);
-      res.status(500).send('Error uploading video');
+      res.status(500).send(`'Error uploading video' ${error}`);
   }
 })
 
