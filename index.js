@@ -3,6 +3,7 @@ const { google } = require('googleapis');
 require('dotenv').config();
 const multer = require('multer');
 const cors = require('cors');
+const fs = require('fs');
 
 const app = express();
 app.use(express.json());
@@ -56,8 +57,10 @@ app.post('/upload_video', upload.single('video'), async (req, res) => {
    console.log('credentials', oAuth2Client.credentials)
   if (!oAuth2Client.credentials) {
     // If not, redirect to /connect_youtube to start OAuth flow
+    console.log('no credentials')
     return res.redirect('/connect_youtube');
   }
+  console.log('credential available')
   const youtube = google.youtube('v3');
 
   try {
