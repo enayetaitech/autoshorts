@@ -38,18 +38,25 @@ app.get('/connect_youtube', (req, res) => {
 // OAuth2 callback route
 app.get('/oauth2callback', async (req, res) => {
     const { code } = req.query;
+    console.log('code', code)
+    console.log('query', req.query)
     const { tokens } = await oAuth2Client.getToken(code);
     console.log('tokens', tokens)
     oAuth2Client.setCredentials(tokens);
-    res.send('YouTube account connected. You can now upload videos.');
+    res.redirect('/upload_video'); 
 });
 
-app.post('/upload_video',upload.single('video'), async (req, res) => {
+app.post('/upload_video', upload.single('video'), async (req, res) => {
   const { title, description } = req.body; // assume video is a file buffer or string
   const video = req.file;
   console.log('title', title)
   console.log('description', description)
   console.log('video', video)
+   // Check if user has authenticated with YouTube
+  if (!oAuth2Client.hasCredentials()) {
+    // If not, redirect to /connect_youtube to start OAuth flow
+    return res.redirect('/connect_youtube');
+  }
   const youtube = google.youtube('v3');
 
   try {
