@@ -69,6 +69,7 @@ app.post('/upload_video', upload.single('video'), async (req, res) => {
     return res.redirect('/connect_youtube');
   }
   console.log('credential available')
+  console.log('inside upload', oAuth2Client)
   const youtube = google.youtube('v3');
 
   try {
