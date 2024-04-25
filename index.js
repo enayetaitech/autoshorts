@@ -53,6 +53,7 @@ app.post('/upload_video', upload.single('video'), async (req, res) => {
   console.log('description', description)
   console.log('video', video)
    // Check if user has authenticated with YouTube
+   console.log('credentials', oAuth2Client.credentials)
   if (!oAuth2Client.credentials) {
     // If not, redirect to /connect_youtube to start OAuth flow
     return res.redirect('/connect_youtube');
@@ -61,15 +62,18 @@ app.post('/upload_video', upload.single('video'), async (req, res) => {
 
   try {
       const uploadResponse = await youtube.videos.insert({
-          part: 'snippet',
+          part: 'snippet,status',
           requestBody: {
               snippet: {
                   title,
                   description,
               },
+              status: {
+                privacyStatus: 'private' // Set privacy status as needed (e.g., 'private', 'public', 'unlisted')
+            }
           },
           media: {
-              body: video,
+              body: fs.createReadStream(video.path),
           },
       }, {
           auth: oAuth2Client,
