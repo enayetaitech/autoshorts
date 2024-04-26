@@ -1,47 +1,48 @@
+require('dotenv').config();
+const express = require('express');
 const axios = require('axios');
 
-const clientId = '2098079117239772'; // Your Client ID
-const redirectUri = '(link unavailable)'; // Your Redirect URI
-const scope = 'user_profile'; // Scope for user profile information
+const app = express();
+const PORT = process.env.PORT || 3000;
 
-// Step 1: Redirect the user to the Instagram authorization page
-const authorizationUrl = `(link unavailable)?
-  client_id=${clientId}&
-  redirect_uri=${redirectUri}&
-  response_type=code&
-  scope=${scope}`;
-
-console.log(`Please visit: ${authorizationUrl}`);
-
-// Step 2: Handle the authorization code callback
-const code = 'THE_AUTHORIZATION_CODE_FROM_INSTAGRAM'; // Replace with the code from the callback
-const tokenUrl = '(link unavailable)';
-
-axios.post(tokenUrl, {
-  client_id: clientId,
-  client_secret: 'YOUR_CLIENT_SECRET', // Your Client Secret
-  grant_type: 'authorization_code',
-  redirect_uri: redirectUri,
-  code: code
-})
-.then(response => {
-  const accessToken = response.data.access_token;
-  console.log(`Access Token: ${accessToken}`);
-
-  // Use the access token to retrieve the user's profile information
-  const profileUrl = '(link unavailable)';
-  axios.get(profileUrl, {
-    headers: {
-      Authorization: `Bearer ${accessToken}`
-    }
-  })
-  .then(response => {
-    console.log(response.data);
-  })
-  .catch(error => {
-    console.error(error);
-  });
-})
-.catch(error => {
-  console.error(error);
+app.get('/auth/instagram', (req, res) => {
+    const url = `https://api.instagram.com/oauth/authorize?client_id=${process.env.INSTAGRAM_CLIENT_ID}&redirect_uri=${process.env.INSTAGRAM_REDIRECT_URI}&scope=user_profile,user_media&response_type=code`;
+    res.redirect(url);
 });
+
+app.get('/auth/instagram/callback', async (req, res) => {
+    const code = req.query.code;
+    if (!code) {
+        return res.send('No code!');
+    }
+
+    try {
+        const response = await axios.post('https://api.instagram.com/oauth/access_token', {
+            client_id: process.env.INSTAGRAM_CLIENT_ID,
+            client_secret: process.env.INSTAGRAM_CLIENT_SECRET,
+            grant_type: 'authorization_code',
+            redirect_uri: process.env.INSTAGRAM_REDIRECT_URI,
+            code: code,
+        });
+        const accessToken = response.data.access_token;
+        res.json({ accessToken });
+    } catch (error) {
+        console.error('Error getting access token:', error);
+        res.status(500).send('Authentication failed');
+    }
+});
+
+
+app.post('/auth/instagram/deauthorize', (req, res) => {
+  // Handle deauthorization notification
+  console.log('Received deauthorization notification:', req.body);
+  res.sendStatus(200); // Respond with success status
+});
+
+app.delete('/auth/instagram/delete', (req, res) => {
+  // Handle deauthorization notification
+  console.log('Received delete notification:', req.body);
+  res.sendStatus(200); // Respond with success status
+});
+
+app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
