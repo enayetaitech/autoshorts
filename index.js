@@ -52,7 +52,7 @@ app.get("/oauth2callback", async (req, res) => {
   console.log('token',tokens)
   oAuth2Client.setCredentials(tokens);
   userToken = tokens
-  res.redirect("/upload_video");
+  res.send('YouTube account connected. You can now upload videos.')
 });
 
 // Web hook for sending data to the zapier
