@@ -50,7 +50,7 @@ app.get("/oauth2callback", async (req, res) => {
   const { tokens } = await oAuth2Client.getToken(code);
   console.log('token',tokens)
   oAuth2Client.setCredentials(tokens);
-  res.redirect("/upload_video");
+  res.send(tokens);
 });
 
 // Web hook for sending data to the zapier
@@ -78,6 +78,8 @@ app.post("/webhook", upload.single("file"), (req, res) => {
 });
 
 app.post("/upload_video", upload.single("video"), async (req, res) => {
+  console.log('upload route hit')
+  console.log(oAuth2Client.getToken())
   if (!req.file) {
     return res.status(400).send("No video file uploaded.");
   }
