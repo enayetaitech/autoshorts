@@ -31,6 +31,7 @@ const oAuth2Client = new google.auth.OAuth2(
   CLIENT_SECRET,
   REDIRECT_URI
 );
+let userToken;
 
 const SCOPES = ["https://www.googleapis.com/auth/youtube.upload"];
 
@@ -50,7 +51,8 @@ app.get("/oauth2callback", async (req, res) => {
   const { tokens } = await oAuth2Client.getToken(code);
   console.log('token',tokens)
   oAuth2Client.setCredentials(tokens);
-  res.send(tokens);
+  userToken = tokens
+  res.redirect("/upload_video");
 });
 
 // Web hook for sending data to the zapier
@@ -79,7 +81,7 @@ app.post("/webhook", upload.single("file"), (req, res) => {
 
 app.post("/upload_video", upload.single("video"), async (req, res) => {
   console.log('upload route hit')
-  console.log(oAuth2Client.getToken())
+  console.log('user token', userToken)
   if (!req.file) {
     return res.status(400).send("No video file uploaded.");
   }
