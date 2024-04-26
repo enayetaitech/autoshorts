@@ -1,101 +1,47 @@
-const express = require('express');
-const { google } = require('googleapis');
-const multer = require('multer');
-const fs = require('fs');
-const path = require('path');
-const { authenticate } = require('@google-cloud/local-auth');
-const readline = require('readline');
+const axios = require('axios');
 
-const app = express();
-const PORT = process.env.PORT || 3000;
+const clientId = '2098079117239772'; // Your Client ID
+const redirectUri = '(link unavailable)'; // Your Redirect URI
+const scope = 'user_profile'; // Scope for user profile information
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Step 1: Redirect the user to the Instagram authorization page
+const authorizationUrl = `(link unavailable)?
+  client_id=${clientId}&
+  redirect_uri=${redirectUri}&
+  response_type=code&
+  scope=${scope}`;
 
-// Multer configuration for handling file uploads
-const upload = multer({ dest: './uploads/' });
+console.log(`Please visit: ${authorizationUrl}`);
 
-// Initialize OAuth2 client
-const oAuth2Client = new google.auth.OAuth2({
-  clientId: '1084926580778-s30h9vo5hvq7f5bn26uuujp7e2s9b20v.apps.googleusercontent.com',
-  clientSecret: '=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',
-  redirectUri: `https://autoshorts.onrender.com/oauth2callback`
-});
+// Step 2: Handle the authorization code callback
+const code = 'THE_AUTHORIZATION_CODE_FROM_INSTAGRAM'; // Replace with the code from the callback
+const tokenUrl = '(link unavailable)';
 
-console.log('oAuth2cline', oAuth2Client)
+axios.post(tokenUrl, {
+  client_id: clientId,
+  client_secret: 'YOUR_CLIENT_SECRET', // Your Client Secret
+  grant_type: 'authorization_code',
+  redirect_uri: redirectUri,
+  code: code
+})
+.then(response => {
+  const accessToken = response.data.access_token;
+  console.log(`Access Token: ${accessToken}`);
 
-// Define scopes required for YouTube API
-const SCOPES = [
-  'https://www.googleapis.com/auth/youtube.upload',
-  'https://www.googleapis.com/auth/youtube'
-];
-
-// Generate authorization URL
-app.get('/auth', (req, res) => {
-  const authUrl = oAuth2Client.generateAuthUrl({
-    access_type: 'offline',
-    scope: SCOPES
-  });
-  console.log('auth url', authUrl)
-  res.redirect(authUrl);
-});
-
-// Handle OAuth2 callback
-app.get('/oauthcallback', async (req, res) => {
-  const code = req.query.code;
-  console.log('code', code)
-  const { tokens } = await oAuth2Client.getToken(code);
-  console.log('token', tokens)
-  oAuth2Client.setCredentials(tokens);
-  console.log('credentials', oAuth2Client.credentials)
-  res.redirect('/upload');
-});
-
-// Handle file upload and video upload
-app.post('/upload', upload.single('video'), async (req, res) => {
-  const { title, description } = req.body;
-  const videoPath = req.file.path;
-console.log('title and desc', title, description)
-console.log('videopath',videoPath)
-  // Upload video to YouTube
-  const youtube = google.youtube({ version: 'v3', auth: oAuth2Client });
-  const fileSize = fs.statSync(videoPath).size;
-
-  const uploadParams = {
-    part: 'snippet,status',
-    requestBody: {
-      snippet: {
-        title: title,
-        description: description
-      },
-      status: {
-        privacyStatus: 'private' // Change privacy status as needed
-      }
-    },
-    media: {
-      body: fs.createReadStream(videoPath)
+  // Use the access token to retrieve the user's profile information
+  const profileUrl = '(link unavailable)';
+  axios.get(profileUrl, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`
     }
-  };
-
-  const res = await youtube.videos.insert(uploadParams, {
-    onUploadProgress: evt => {
-      const progress = (evt.bytesRead / fileSize) * 100;
-      readline.clearLine(process.stdout, 0);
-      readline.cursorTo(process.stdout, 0, null);
-      process.stdout.write(`${Math.round(progress)}% complete`);
-    }
+  })
+  .then(response => {
+    console.log(response.data);
+  })
+  .catch(error => {
+    console.error(error);
   });
-
-  console.log('Video uploaded:', res.data);
-  res.send('Video uploaded successfully!');
+})
+.catch(error => {
+  console.error(error);
 });
-
-// Start the server
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-});
-
-
-// 1084926580778-s30h9vo5hvq7f5bn26uuujp7e2s9b20v.apps.googleusercontent.com
-
-// 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
