@@ -5,10 +5,13 @@ const app = express();
 const mongoose = require('mongoose');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
+const cors = require('cors');
 
 
 app.use(express.json());
-
+app.use(cors({
+  origin: 'http://localhost:5173' // Only allow this origin to access your backend
+}));
 
 // oauth credential
 const oauth2Client = new google.auth.OAuth2(
@@ -66,14 +69,16 @@ const Token = mongoose.model('Token', TokenSchema);
 // user register endpoint
 app.post('/register', async (req, res) => {
   try {
+    
     const { username, password } = req.body;
+    console.log('register', username, password)
     const userExists = await User.findOne({ username: username });
     if (userExists) {
       return res.status(409).send('Username already exists');
     }
 
     const user = new User({ username, password });
-    await user.save();
+    // await user.save();
     res.status(201).send('User created successfully');
   } catch (error) {
     res.status(500).send('Error registering user');
@@ -85,7 +90,8 @@ app.post('/register', async (req, res) => {
 app.post('/login', (req, res) => {
   const { username, password } = req.body;
   // Authenticate user
-  const user = authenticateUser(username, password);
+  console.log('login', username, password)
+  // const user = authenticateUser(username, password);
   if (user) {
     const userId = user.id;  // Assume user object has an id
     const token = jwt.sign({ userId }, process.env.JWT_SECRET, {
