@@ -1,90 +1,176 @@
-// require('dotenv').config();
-// const express = require('express');
-// const axios = require('axios');
-
-// const app = express();
-// const PORT = process.env.PORT || 3000;
-
-// app.get('/auth/instagram', (req, res) => {
-//     const url = `https://api.instagram.com/oauth/authorize?client_id=${process.env.INSTAGRAM_CLIENT_ID}&redirect_uri=${process.env.INSTAGRAM_REDIRECT_URI}&scope=user_profile,user_media&response_type=code`;
-//     res.redirect(url);
-// });
-
-// app.get('/auth/instagram/callback', async (req, res) => {
-//     const code = req.query.code;
-//     if (!code) {
-//         return res.send('No code!');
-//     }
-
-//     try {
-//         const response = await axios.post('https://api.instagram.com/oauth/access_token', {
-//             client_id: process.env.INSTAGRAM_CLIENT_ID,
-//             client_secret: process.env.INSTAGRAM_CLIENT_SECRET,
-//             grant_type: 'authorization_code',
-//             redirect_uri: process.env.INSTAGRAM_REDIRECT_URI,
-//             code: code,
-//         });
-//         const accessToken = response.data.access_token;
-//         res.json({ accessToken });
-//     } catch (error) {
-//         console.error('Error getting access token:', error);
-//         res.status(500).send('Authentication failed');
-//     }
-// });
+require('dotenv').config();
+const express = require('express');
+const { google } = require('googleapis');
+const app = express();
+const mongoose = require('mongoose');
+const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
 
 
-// app.post('/auth/instagram/deauthorize', (req, res) => {
-//   // Handle deauthorization notification
-//   console.log('Received deauthorization notification:', req.body);
-//   res.sendStatus(200); // Respond with success status
-// });
-
-// app.delete('/auth/instagram/delete', (req, res) => {
-//   // Handle deauthorization notification
-//   console.log('Received delete notification:', req.body);
-//   res.sendStatus(200); // Respond with success status
-// });
-
-// app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
+app.use(express.json());
 
 
-const axios = require('axios');
-const readline = require('readline');
+// oauth credential
+const oauth2Client = new google.auth.OAuth2(
+  process.env.CLIENT_ID,
+  process.env.CLIENT_SECRET,
+  "http://localhost:3000/oauth2callback"
+);
 
-const clientId = process.env.INSTAGRAM_CLIENT_ID;
-const clientSecret = process.env.INSTAGRAM_CLIENT_SECRET;
-const redirectUri = 'http://localhost:5000/auth/instagram/callback';
-const accessUrl = 'https://www.facebook.com/v13.0/dialog/oauth?response_type=token&display=popup&client_id=your_client_id&redirect_uri=your_redirect_uri&auth_type=rerequest&scope=user_location%2Cuser_photos%2Cuser_friends%2Cuser_gender%2Cpages_show_list%2Cinstagram_basic%2Cinstagram_manage_comments%2Cinstagram_manage_insights%2Cpages_read_engagement%2Cpublic_profile';
-const graphUrl = 'https://graph.facebook.com/v15.0/';
+const scopes = [
+  'https://www.googleapis.com/auth/youtube.upload'
+];
 
-async function getAccessTokenUrl() {
-  const accessTokenUrl = `${accessUrl}&redirect_uri=${redirectUri}`;
-  console.log('\nAccess code URL:', accessTokenUrl);
+// MongoDB connection
+mongoose.connect(process.env.MONGODB_URI, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true
+}).then(() => console.log('MongoDB connected'))
+  .catch(err => console.log(err));
+
+
+// user schema
+const userSchema = new mongoose.Schema({
+  username: { type: String, required: true, unique: true },
+  password: { type: String, required: true }
+});
+
+// Pre-save hook to hash password before saving
+userSchema.pre('save', async function (next) {
+  if (!this.isModified('password')) return next();
+  this.password = await bcrypt.hash(this.password, 8);
+  next();
+});
+
+// Method to compare passwords
+userSchema.methods.comparePassword = async function(candidatePassword) {
+  return await bcrypt.compare(candidatePassword, this.password);
+};
+
+const User = mongoose.model('User', userSchema);
+
+// Token schema
+
+const TokenSchema = new mongoose.Schema({
+  userId: { type: String, required: true },
+  accessToken: String,
+  refreshToken: String,
+  scope: String,
+  tokenType: String,
+  expiryDate: Number
+});
+
+const Token = mongoose.model('Token', TokenSchema);
+
+
+// user register endpoint
+app.post('/register', async (req, res) => {
   try {
-    const response = await axios.get(accessTokenUrl);
-    const accessToken = response.data.access_token;
-    getLongLivedAccessToken(accessToken);
+    const { username, password } = req.body;
+    const userExists = await User.findOne({ username: username });
+    if (userExists) {
+      return res.status(409).send('Username already exists');
+    }
+
+    const user = new User({ username, password });
+    await user.save();
+    res.status(201).send('User created successfully');
   } catch (error) {
-    console.error('Error:', error.message);
+    res.status(500).send('Error registering user');
   }
-}
+});
 
-async function getLongLivedAccessToken(accessToken) {
-  const url = `${graphUrl}oauth/access_token`;
-  const params = {
-    grant_type: 'fb_exchange_token',
-    client_id: clientId,
-    client_secret: clientSecret,
-    fb_exchange_token: accessToken
-  };
 
+// User login endpoint
+app.post('/login', (req, res) => {
+  const { username, password } = req.body;
+  // Authenticate user
+  const user = authenticateUser(username, password);
+  if (user) {
+    const userId = user.id;  // Assume user object has an id
+    const token = jwt.sign({ userId }, process.env.JWT_SECRET, {
+      expiresIn: '1h'
+    });
+    res.json({ token });
+  } else {
+    res.status(401).send('Login failed');
+  }
+});
+
+// Middleware to validate token
+const authenticateToken = (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN_HERE
+  if (token == null) return res.sendStatus(401);
+
+  jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
+    if (err) return res.sendStatus(403);
+    req.userId = user.userId;
+    next();
+  });
+};
+
+// getting client token
+app.get('/auth', (req, res) => {
+  const state = jwt.sign({ userId: req.userId }, process.env.JWT_SECRET, {
+      expiresIn: '10m'  // short expiry
+  });
+  const url = oauth2Client.generateAuthUrl({
+      access_type: 'offline',
+      scope: scopes,
+      state: state  // Pass state parameter
+  });
+  res.redirect(url);
+});
+
+
+// oauth callback route
+app.get('/oauth2callback', async (req, res) => {
   try {
-    const response = await axios.get(url, { params });
-    const longLivedAccessToken = response.data.access_token;
-    console.log('\nLong-lived access token:', longLivedAccessToken);
-  } catch (error) {
-    console.error('Error:', error.message);
-  }
-}
+      const { userId } = jwt.verify(req.query.state, process.env.JWT_SECRET);
+      const { tokens } = await oauth2Client.getToken(req.query.code);
+      oauth2Client.setCredentials(tokens);
 
-getAccessTokenUrl();
+      const tokenDocument = new Token({
+          userId: userId,  // Use userId extracted from state
+          accessToken: tokens.access_token,
+          refreshToken: tokens.refresh_token,
+          scope: tokens.scope,
+          tokenType: tokens.token_type,
+          expiryDate: tokens.expiry_date
+      });
+
+      await tokenDocument.save();
+      res.send('Authentication successful, you can now close this window.');
+  } catch (err) {
+      console.error('Error processing OAuth2 callback:', err);
+      res.status(500).send('Authentication failed.');
+  }
+});
+
+
+
+// video posting route
+app.post('/upload-video', async (req, res) => {
+  const videoFilePath = 'path/to/your/video.mp4'; // This will be the video file path
+  const youtube = google.youtube({ version: 'v3', auth: oauth2Client });
+  const response = await youtube.videos.insert({
+    part: 'snippet, status',
+    requestBody: {
+      snippet: {
+        title: 'Test Video',
+        description: 'Test video uploaded via YouTube API'
+      },
+      status: {
+        privacyStatus: 'private'
+      }
+    },
+    media: {
+      body: fs.createReadStream(videoFilePath)
+    }
+  });
+  res.send(`Video uploaded, ID: ${response.data.id}`);
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`Server listening on port ${PORT}`));
