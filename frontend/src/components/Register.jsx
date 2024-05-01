@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import  { useState } from 'react';
 import axios from 'axios';
 
 function Register() {
@@ -8,8 +8,10 @@ function Register() {
   const handleSubmit = async (event) => {
     event.preventDefault();
     try {
-      await axios.post('http://localhost:3000/register', { username, password });
-      alert('Registration successful!');
+     const res =  await axios.post('http://localhost:3000/register', { username, password }, { withCredentials: true });
+     const data = res.data;
+     console.log(data)
+  
     } catch (error) {
       alert('Failed to register!');
     }

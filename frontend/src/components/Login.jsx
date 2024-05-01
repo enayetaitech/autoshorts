@@ -8,9 +8,10 @@ function Login() {
   const handleSubmit = async (event) => {
     event.preventDefault();
     try {
-      const response = await axios.post('http://localhost:3000/login', { username, password });
-      localStorage.setItem('token', response.data.token);
-      alert('Login successful!');
+      const response = await axios.post('http://localhost:3000/login', { username, password }, { withCredentials: true });
+      console.log(response.data)
+      // localStorage.setItem('token', response.data.token);
+      // alert('Login successful!');
     } catch (error) {
       alert('Failed to login!');
     }
